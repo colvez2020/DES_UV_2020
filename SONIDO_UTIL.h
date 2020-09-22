@@ -2,6 +2,7 @@
 #define SONIDO_UTIL_H
 
 void Sonido_Beep_choque(void);
+void Sonido_Beep_reset(void);
 void Sonido_Beep_lamp(void);
 void SPK_ini(void);
 

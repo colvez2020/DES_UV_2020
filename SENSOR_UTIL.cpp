@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <EEPROM.h>
+
 #include "SENSOR_UTIL.h"
 #include "COMUNICA_CMD.h"
 
@@ -12,20 +14,24 @@
 #define LEDST_02              44
 #define LEDST_03              45
 
-#define AnaDelay              4000  // tiempo de medida de sensores
-
+#define AnaDelay              30000  // tiempo de medida de sensores
+#define Voltaje_Corriente_cero        2.502
 
 ///////////////////////////////////// VARIABLES GLOBALES //////////////////////////////////////////////////////
 //Variables Analogas
 float voltaje_baterias;
 float voltaje_Sensor_corriente;
-float Sensibilidad=0.66; //sensibilidad en Voltios/Amperio para sensor de 5A
+float Sensibilidad=0.066; //sensibilidad en Voltios/Amperio para sensor de 5A
 float Corriente_baterias;
 float voltaje_Sensot_temp1;
 float voltaje_Sensot_temp2;
 float celsius;
 unsigned long lastPingAna;
 
+//Baterias
+int Contador_ciclos_carga;
+boolean Llegue_voltaje_bajo;
+boolean Llegue_voltaje_alto;
 
 //Ultrasonic
 #define soundSpeed       343.0                      // Speed of sound in m/s (343m/s at 20°C with dry air)
@@ -46,6 +52,7 @@ float distancesCm[tSENS];                     // Distances in cm
 float distancia_result;
 volatile int ultra_RSP;
 unsigned long lastPingMillis;
+
 
 
 /****************************************************************
@@ -73,7 +80,7 @@ void ISR_ECHO()
 
 void Analog_ini(void)
 {
-  //analogReference(EXTERNAL);
+  analogReference(EXTERNAL);
   lastPingAna = millis();              //Tiempo de referencia para lectura de sonic
   pinMode(LEDST_00, OUTPUT);
   pinMode(LEDST_01, OUTPUT);
@@ -146,17 +153,12 @@ boolean Sonic_precacion_choque(char Direccion_mov)
   if (millis() - lastPingMillis >= pingDelay)
   {
     distancia_result=Sensor_Sonic_medir(&Direccion_waring);
-     // Serial.println(   String(distancesCm[0]) + " - " 
-       //               + String(distancesCm[1]) + " - " 
-         //             + String(distancesCm[2]));
-    //Serial.print("direccion=");
-    //Serial.println(Direccion_waring);
-    if((distancia_result<20) && (Direccion_waring == Direccion_mov))
+    if((distancia_result<5) && (Direccion_waring == Direccion_mov))
     {
    
         //Serial.print("CHOQUE a !");
         //Serial.print(distancia_result);
-        return false;
+        return true;
     }         
     //ComandoSerial.print(distancia_result);              
     //ComandoSerial.println(",");              
@@ -186,8 +188,23 @@ void Test_SensoresSonic(void)
 
 float Sensor_CorrienteBAT(void)
 {
-    voltaje_Sensor_corriente=analogRead(ANALG_SN04_CB)*(5.0 / 1023.0); //lectura del sensor    
-    Corriente_baterias=(voltaje_Sensor_corriente-2.5)/Sensibilidad; //Ecuación  para obtener la corriente
+  float result=0;
+    for(int i=0;i<200;i++)
+    {
+       voltaje_Sensor_corriente=analogRead(ANALG_SN04_CB)*(4.084 / 1023.0); //lectura del sensor         
+       result=result+voltaje_Sensor_corriente;
+    }
+    result=result/200;
+
+    Serial.print("Corriente_voltio: ");
+    Serial.println(result,4);
+    Serial.print("voltaje_Sensor_corriente-Voltaje_Corriente_cero: ");
+    Serial.println(voltaje_Sensor_corriente-Voltaje_Corriente_cero,4);
+    
+    Corriente_baterias=(voltaje_Sensor_corriente-Voltaje_Corriente_cero)/Sensibilidad; //Ecuación  para obtener la corriente
+    if(Corriente_baterias<0)
+      Corriente_baterias=0;
+ 
     Serial.print("Corriente_Baterias: ");
     Serial.println(Corriente_baterias,3);
     return  Corriente_baterias;
@@ -199,12 +216,12 @@ float Sensor_VoltajeBAT(void)
   
   for(int i=0;i<100;i++)
   {
-    voltaje_baterias =(float)12.5*(float)5*analogRead(ANALG_SN03_VB)/1023.0;
+    voltaje_baterias =(float)12.08*(float)4.084*analogRead(ANALG_SN03_VB)/1023.0;
     result=result+voltaje_baterias;
   }
     result=result/100;
-    Serial.print("Voltaje Baterias =  ");
-    Serial.println(result);
+    //Serial.print("Voltaje Baterias =  ");
+    //Serial.println(result);
     return result;
 }
 
@@ -226,7 +243,7 @@ boolean Read_sensor_analog(float *VoltajeBAT,float *CorrienteBAT,float *TempA,fl
 {
   if (millis() - lastPingAna >= AnaDelay)
   {
-    //*CorrienteBAT=Sensor_CorrienteBAT();
+    *CorrienteBAT=Sensor_CorrienteBAT();
     *VoltajeBAT=Sensor_VoltajeBAT();
     //Sensor_TempBAT(TempA,TemB);
     
@@ -235,6 +252,57 @@ boolean Read_sensor_analog(float *VoltajeBAT,float *CorrienteBAT,float *TempA,fl
   }
   return false;
 }
+
+
+//10 Llegue_voltaje_bajo
+//11 Llegue_voltaje_alto
+//12 Contador_ciclos_carga
+int Actualizar_ciclos_carga(float voltaje_bateria)
+{
+  char* pdata;
+  int K;
+  
+  Llegue_voltaje_bajo=EEPROM.read(10);
+  Llegue_voltaje_alto=EEPROM.read(11);
+
+  pdata=(char*)&Contador_ciclos_carga;
+  
+  for(K=0;K<sizeof(int);K++)
+  {
+    pdata[K]=EEPROM.read(K+12);
+  }
+  
+  if(voltaje_bateria<24.65)
+  {
+    EEPROM.update(10,true); //Llegue_voltaje_bajo;
+    Serial.println("bateria baja");
+  }
+    
+  if(voltaje_bateria>25.15)
+  {
+    if(Llegue_voltaje_bajo==true)
+    {
+      Serial.println("bateria ALTA");
+      EEPROM.update(11,true);
+    }
+      
+  }
+    
+  if(Llegue_voltaje_bajo==true && Llegue_voltaje_alto==true)
+  {
+    Contador_ciclos_carga++;
+    for(K=0;K<sizeof(int);K++)
+    {
+      EEPROM.update(K+12,pdata[K]);
+    }
+    EEPROM.update(10,false);  //Llegue_voltaje_bajo
+    EEPROM.update(11,false);  //Llegue_voltaje_alto
+    Serial.print("En contador carga");
+    Serial.println(Contador_ciclos_carga);  
+  }
+  return Contador_ciclos_carga;
+}
+
 //100% 4.1  *7=28.7   (28)
 //75% 3.755 *7=26,285 (26.1)
 //50% 3.575 *7=25.025 (24.95)
@@ -242,7 +310,7 @@ boolean Read_sensor_analog(float *VoltajeBAT,float *CorrienteBAT,float *TempA,fl
 //0%  3.21 * 7=22.5   (22,65)
 int Estimar_capacidad_4LED(float votaje_bat)
 {
-  if(votaje_bat>=28.0)
+  if(votaje_bat>=26.4)
   { //100%
     digitalWrite(LEDST_00, LOW);
     digitalWrite(LEDST_01, LOW);
@@ -250,7 +318,7 @@ int Estimar_capacidad_4LED(float votaje_bat)
     digitalWrite(LEDST_03, LOW);
     return 100;
   }
-  else if(votaje_bat>=26.1)  
+  else if(votaje_bat>=25.15)  
   {//75%
     digitalWrite(LEDST_00, LOW);
     digitalWrite(LEDST_01, LOW);
@@ -258,7 +326,7 @@ int Estimar_capacidad_4LED(float votaje_bat)
     digitalWrite(LEDST_03, HIGH);
     return 75;
   }
-  else if(votaje_bat>=24.95)
+  else if(votaje_bat>=23.9)
   {//50%
     digitalWrite(LEDST_00, LOW);
     digitalWrite(LEDST_01, LOW);
@@ -266,7 +334,7 @@ int Estimar_capacidad_4LED(float votaje_bat)
     digitalWrite(LEDST_03, HIGH);
     return 50;
   }
-  else if(votaje_bat>=23.5)
+  else if(votaje_bat>=22.65)
   {//25%
     digitalWrite(LEDST_00, LOW);
     digitalWrite(LEDST_01, HIGH);
@@ -274,7 +342,7 @@ int Estimar_capacidad_4LED(float votaje_bat)
     digitalWrite(LEDST_03, HIGH);
     return 25;
   }
-  else if(votaje_bat<=22.65)
+  else if(votaje_bat<22.65)
   { //0%
     digitalWrite(LEDST_00, HIGH);
     digitalWrite(LEDST_01, HIGH);
@@ -289,7 +357,7 @@ int Estimar_capacidad_MAP(float votaje_bat)
   float out_max, out_min, in_max, in_min, result; 
 
   in_min=22.1;
-  in_max=29;
+  in_max=27.2;
   out_min=0;
   out_max=100;
   

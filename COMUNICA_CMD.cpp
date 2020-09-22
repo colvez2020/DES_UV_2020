@@ -1,14 +1,19 @@
 #include "COMUNICA_CMD.h"
+#include "SONIDO_UTIL.h"
 #include <nRF24L01.h>
 #include <RF24.h>
 #include <RF24_config.h>
 #include <SPI.h>
 
+//WIFI
+char WIFI_COMUNU_ATEMP=0;
+boolean WIFI_CONFIG_OK=true;
+
 //RF24
 #define CNS_RF24             49
 #define IRQ_RF24             3
 #define CE_RF24              48
-
+#define WIFI_RESET           46
 #define COMU_TEST
 
 const int pinCE = CE_RF24;
@@ -19,12 +24,15 @@ char data_RF;
 
 boolean Mensaje_disc=false;
 int     Mensaje_disc_contador=0;
+
 HardwareSerial & ComandoSerial = Serial1;
 HardwareSerial & TabletaSerial = Serial2;
-
+HardwareSerial & WIFISerial =    Serial3;
 ////////////////////////GENERAL///////////////////////////////////////////
 void COMUNI_ini(void)
 {
+  pinMode(WIFI_RESET, OUTPUT);                  // Set echo pin as INPUT (do not use pullup when using diodes !)
+  digitalWrite(WIFI_RESET,LOW);
   Serial.begin(9600);
   #ifndef AT_MODE
   ComandoSerial.begin(9600);
@@ -32,8 +40,8 @@ void COMUNI_ini(void)
   #ifdef AT_MODE
   ComandoSerial.begin(38400);
   #endif
-
   TabletaSerial.begin(9600);
+  WIFISerial.begin(9600);
   
   while (!Serial) {
     ; // Wait for Serial
@@ -44,9 +52,17 @@ void COMUNI_ini(void)
   while (!TabletaSerial) {
     ; // Wait for Serial
   }
+
+  while (!WIFISerial) {
+    ; // Wait for Serial
+  }
   #ifdef COMU_TEST
     Serial.println("--- Serial monitor started ---");
   #endif
+  delay(500);
+  delay(500);
+  delay(500);
+  digitalWrite(WIFI_RESET,HIGH);
 }
 
 boolean CMD_valid(char CMD)
@@ -60,6 +76,8 @@ boolean CMD_valid(char CMD)
     case 'P': //Bloque de instrucciones 1;
     case 'O':
     case 'F':
+    case 'W':
+    case 'S':
     case 0x01:
     case 0x03:
        return true;
@@ -188,12 +206,78 @@ boolean CMD_tableta(char *CMD_tableta)
       Serial.print("Tableta=");
       Serial.print(*CMD_tableta);
       Serial.print(" HEX=");
-      Serial.print(*CMD_tableta,HEX);
+      Serial.println(*CMD_tableta,HEX);
     #endif
+    if(*CMD_tableta<0x01 && *CMD_tableta>0x03)
+      return false;
     if(CMD_valid(*CMD_tableta))
         return true;
   }  
   return false;
+}
+
+void Print_SENSORDATA_ON_WIFI(char op,int Data_int, float Data_float, char Data_type)
+{
+  long timeout=2000;
+  String OutData;
+  char ACK;
+
+  if(WIFI_CONFIG_OK==true)
+  {
+    if(op==1)
+      OutData=String(Data_type)+String(Data_int)+String('!');
+    else
+      OutData=String(Data_type)+String(Data_float)+String('!');
+    Serial.print("dato a mandar =");
+    Serial.println(OutData);
+    WIFISerial.println(OutData);
+    do{
+      ACK=WIFISerial.read();
+      delay(1);
+      timeout++;
+      if(timeout>3000)
+        break;
+    }while(ACK!='K');
+    if(ACK=='K')
+    {
+      Serial.println("WIFISEND_OK");
+      WIFI_COMUNU_ATEMP=0;
+    }
+    else
+    {
+      Serial.println("WIFISEND_BAD");
+      WIFI_COMUNU_ATEMP++;
+    }
+  
+    if(WIFI_COMUNU_ATEMP==5)
+    {
+      WIFI_8266_RESET();
+      WIFI_COMUNU_ATEMP=0;
+    }  
+  }
+    
+}
+
+void Reconfig_WIFI(void)
+{
+  WIFISerial.println('W');
+  WIFISerial.println('W');
+  WIFI_CONFIG_OK=false;
+  Sonido_Beep_choque();
+}
+
+void WIFI_Send_START(void)
+{
+  WIFI_CONFIG_OK=true;
+}
+
+void WIFI_8266_RESET(void)
+{
+  digitalWrite(WIFI_RESET,LOW);
+  Sonido_Beep_reset();
+  Serial.println("RESET_WIFI");
+  delay(500);
+  digitalWrite(WIFI_RESET,HIGH);
 }
 
 

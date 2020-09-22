@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "LAMP_UTIL.h"
+#include <EEPROM.h>
 
 //Led12V
 #define LED12V_UC           22
@@ -18,7 +19,11 @@ boolean Alterna_flag12V=true;
 boolean Alterna_flagUVC=true;
 unsigned long lastPingled12V;
 unsigned long lastPingLampUVC;
-int contador_prueba_actual;
+int Contador_prueba_actual;
+int Contador_uso_lamparas;
+
+
+
 
 void Lamp_ini(void)
 {
@@ -31,7 +36,7 @@ void Lamp_ini(void)
   digitalWrite(Lamp_RELAY_00_UC,LOW);
   lastPingled12V=millis();                             //Punto de inico para el tiempo   
   lastPingLampUVC=millis();
-  contador_prueba_actual=0; 
+  Contador_prueba_actual=0; 
 }
 
 void Control_Lamp12V(void)
@@ -45,7 +50,7 @@ void Control_Lamp12V(void)
     }
     else
     {
-     digitalWrite(LED12V_UC, LOW);    // HIGH pulse for at least 10µs
+    digitalWrite(LED12V_UC, LOW);    // HIGH pulse for at least 10µs
       Alterna_flag12V=true;
     }
     lastPingled12V = millis();
@@ -55,6 +60,7 @@ void Control_Lamp12V(void)
 
 void Control_UVC(char cmd)
 {
+    char* pdata; 
     if(cmd==1)
     {      
       digitalWrite(Lamp_RELAY_00_UC,HIGH);
@@ -63,6 +69,10 @@ void Control_UVC(char cmd)
       delay(200);
       digitalWrite(Lamp_RELAY_02_UC,HIGH);
       delay(200);
+      Contador_uso_lamparas++;
+      pdata=(char*)&Contador_uso_lamparas;
+      for(int j=0;j<sizeof(int);j++)
+        EEPROM.write(j,pdata[j]);
     }
     else
     {
@@ -72,6 +82,15 @@ void Control_UVC(char cmd)
     }
 }
 
+void Return_USO_lampara(int* Uso_lampara)
+{
+  char* pdata;
+
+  pdata=(char*)Uso_lampara;
+  
+  for(int j=0;j<sizeof(int);j++)
+     pdata[j]=EEPROM.read(j);
+}
 
 void test_UVC(int Balastro_N, int ON_OFFdelay, int Numero_de_pruebas)
 {
@@ -118,9 +137,9 @@ void test_UVC(int Balastro_N, int ON_OFFdelay, int Numero_de_pruebas)
   {
     Control_UVC(0);
   }*/
-  contador_prueba_actual++;
+  Contador_prueba_actual++;
   Serial.println("actual");
-  Serial.println(contador_prueba_actual);
+  Serial.println(Contador_prueba_actual);
   Serial.println("fin");
   Serial.println(Numero_de_pruebas);
 

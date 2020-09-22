@@ -23,6 +23,8 @@ void  Sensor_TempBAT(float*BATA,float *BATB);
 boolean Read_sensor_analog(float *VoltajeBAT,float *CorrienteBAT,float *TempA,float *TemB);
 int Estimar_capacidad_4LED(float votaje_bat);
 int Estimar_capacidad_MAP(float votaje_bat);
+int Actualizar_ciclos_carga(float voltaje_bateria);
+
 
 
 

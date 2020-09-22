@@ -1,4 +1,5 @@
 #include <LEANTEC_ControlMotor.h>
+#include "COMUNICA_CMD.h"
 #include "SENSOR_UTIL.h"
 #include "MOTOR_UTIL.h"
 #include "SONIDO_UTIL.h"
@@ -52,7 +53,6 @@ void Test_motores_fuerte(void)
 //#define ADELANTE           1
 //#define IZQUIERA           2
 //#define DERECHA            3
-
 void Control_Maquina(char CMD,int *MOV_actual)
 {
   switch(CMD) //donde opción es la variable a comparar
@@ -60,7 +60,8 @@ void Control_Maquina(char CMD,int *MOV_actual)
     case 'I':    
       if(!Sonic_precacion_choque(IZQUIERA))
       {
-        control.Motor(-255,0);
+       control.Motor(-255,0); //OK
+  
         *MOV_actual=IZQUIERA;            
       }  
       else
@@ -85,10 +86,12 @@ void Control_Maquina(char CMD,int *MOV_actual)
       control.Motor(255,-100);    
       *MOV_actual=ATRAS;
     break;
-      case 'D': 
+    case 'D': 
       if(!Sonic_precacion_choque(DERECHA))
       {
-       control.Motor(255,0); //OK
+      
+        control.Motor(255,0);
+      
        *MOV_actual=DERECHA;
       }
       else
@@ -108,13 +111,21 @@ void Control_Maquina(char CMD,int *MOV_actual)
     case 'F':
       Control_UVC(0);
     break;  
-    ///////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////TABLETA
     case 0x01:
       Sonido_Beep_lamp();
       Control_UVC(1);
      break;
-     case 0x03:
+    case 0x03:
       Control_UVC(0);
-     break;
+    break;
+    ///////////////////////////////////////////////////////WIFI
+    case 'W': //Inicia config WIFI, y desactiva el envio de enformacion por WIFI. Para evitar el reset.
+         Reconfig_WIFI();
+    break;
+    case 'S': //Reinicia el envio de informacion. en caso de configurar el WIFI
+          WIFI_Send_START();
+    break;
+    
   }
 }
