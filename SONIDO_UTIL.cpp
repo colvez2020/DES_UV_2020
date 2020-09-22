@@ -26,7 +26,6 @@ void Sonido_Beep_lamp(void)
 void Sonido_Beep_reset(void)
 {
    tone(SPK_ALARMA_UC,3000,20);
-   delay(250);
 }
 
 void Sonido_Beep_choque(void)

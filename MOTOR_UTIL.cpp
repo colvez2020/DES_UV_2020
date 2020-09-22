@@ -19,7 +19,7 @@ boolean  Sentido_Horario=true;
 ControlMotor control(IN00_UC,IN01_UC,IN10_UC,IN11_UC,PWM02_UC,PWM12_UC); // MotorDer1,MotorDer2,MotorIzq1,MotorIzq2,PWM_Derecho,PWM_Izquierdo
                                        // IN01     ,IN02     ,IN11     ,IN12     ,PWM00      ,PWM10
 
-
+/*
 void Test_motores(char MOTOR, char sentido)
 {
   if(MOTOR=='D')
@@ -48,7 +48,7 @@ void Test_motores_fuerte(void)
   }while(1);
 
 }
-
+*/
 
 //#define ADELANTE           1
 //#define IZQUIERA           2

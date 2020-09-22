@@ -241,6 +241,7 @@ void  Sensor_TempBAT(float *BATA, float *BATB)
 
 boolean Read_sensor_analog(float *VoltajeBAT,float *CorrienteBAT,float *TempA,float *TemB)
 {
+  *TempA=*TemB;
   if (millis() - lastPingAna >= AnaDelay)
   {
     *CorrienteBAT=Sensor_CorrienteBAT();
@@ -261,13 +262,15 @@ int Actualizar_ciclos_carga(float voltaje_bateria)
 {
   char* pdata;
   int K;
+  int fin=sizeof(int);
+
   
   Llegue_voltaje_bajo=EEPROM.read(10);
   Llegue_voltaje_alto=EEPROM.read(11);
 
   pdata=(char*)&Contador_ciclos_carga;
   
-  for(K=0;K<sizeof(int);K++)
+  for(K=0;K<fin;K++)
   {
     pdata[K]=EEPROM.read(K+12);
   }
@@ -291,7 +294,7 @@ int Actualizar_ciclos_carga(float voltaje_bateria)
   if(Llegue_voltaje_bajo==true && Llegue_voltaje_alto==true)
   {
     Contador_ciclos_carga++;
-    for(K=0;K<sizeof(int);K++)
+    for(K=0;K<fin;K++)
     {
       EEPROM.update(K+12,pdata[K]);
     }
@@ -365,5 +368,7 @@ int Estimar_capacidad_MAP(float votaje_bat)
 
   if(result<0)
     result=0;
+  if(result>100)
+    result=100;
   return (int)result;
 }

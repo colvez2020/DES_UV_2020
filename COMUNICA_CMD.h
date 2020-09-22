@@ -3,6 +3,10 @@
 
 #include <Arduino.h>
 
+#define WIFI_ACK_NO_RESPONCE 1
+#define WIFI_ACK_OK          2
+#define WIFI_NO_CONFIG       3
+
 void COMUNI_ini(void);
 boolean CMD_valid(char CMD);
 
@@ -15,10 +19,10 @@ void Print_ON_BLUETHOOT_float(float cadena);
 void Print_ON_BLUETHOOT_char(char cadena);
 void Print_ON_BLUETHOOT_int(int cadena);
 
-void Print_SENSORDATA_ON_WIFI(char op,int Data_int, float Data_float, char Data_type);
+char Print_SENSORDATA_ON_WIFI(char op,int Data_int, float Data_float, char Data_type);
 void Reconfig_WIFI(void);
 void WIFI_Send_START(void);
-void WIFI_8266_RESET(void);
+boolean WIFI_8266_RESET(void);
 
 void AT_Bluethoot(void);
 
